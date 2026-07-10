@@ -178,6 +178,13 @@ tbody tr:hover { background: #f3f6fa; }
           <label for="soaDate">SOA Date (As of)</label>
           <input type="date" id="soaDate">
         </div>
+        <div class="field">
+          <label for="soaCurrency">Currency</label>
+          <select id="soaCurrency">
+            <option value="LKR">LKR (Rs.)</option>
+            <option value="USD">USD ($)</option>
+          </select>
+        </div>
       </div>
     </div>
 
@@ -193,7 +200,7 @@ tbody tr:hover { background: #f3f6fa; }
           <input type="date" id="invoiceDate">
         </div>
         <div class="field">
-          <label for="invoiceAmount">Invoice Amount (LKR)</label>
+          <label for="invoiceAmount" id="invoiceAmountLabel">Invoice Amount (LKR)</label>
           <input type="number" id="invoiceAmount" step="0.01" placeholder="0.00">
         </div>
         <div class="field field-btn">
@@ -206,7 +213,7 @@ tbody tr:hover { background: #f3f6fa; }
           <tr>
             <th>Invoice No</th>
             <th>Invoice Date</th>
-            <th>Amount (LKR)</th>
+            <th id="amountHeaderLabel">Amount (LKR)</th>
             <th></th>
           </tr>
         </thead>
@@ -261,7 +268,7 @@ tbody tr:hover { background: #f3f6fa; }
             <th>SOA ID</th>
             <th>Customer Name</th>
             <th>SOA Date</th>
-            <th>Grand Total (LKR)</th>
+            <th>Grand Total</th>
             <th>Created</th>
             <th></th>
           </tr>
@@ -440,8 +447,13 @@ function calculateAgingRows(invoices, soaDate) {
  * jspdf-autotable for the bordered table body.
  */
 
-function fmtMoney(n) {
-  return Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const CURRENCY_SYMBOLS = { LKR: 'Rs. ', USD: '$' };
+const CURRENCY_LABELS = { LKR: 'LKR', USD: 'USD' };
+
+function fmtMoney(n, currency) {
+  const num = Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (!currency) return num;
+  return (CURRENCY_SYMBOLS[currency] || '') + num;
 }
 
 function fmtDateMDY(isoDate) {
@@ -483,9 +495,10 @@ function buildSoaPdf(soa) {
   y += 14;
 
   const { rows, totals, grandTotal } = calculateAgingRows(soa.invoices, soa.SOA_Date);
+  const currency = soa.Currency || 'LKR';
 
   const bucketCols = ['1-30', '31-60', '61-90', '91-120', 'Older'];
-  const head = [['', 'Invoice Date', ...bucketCols, 'Total (LKR)']];
+  const head = [['', 'Invoice Date', ...bucketCols, `Total (${CURRENCY_LABELS[currency]})`]];
 
   const body = [
     [{ content: 'Aged Receivable', colSpan: 8, styles: { fontStyle: 'bold', halign: 'left' } }],
@@ -493,14 +506,14 @@ function buildSoaPdf(soa) {
     ...rows.map(r => [
       r.invoiceNo,
       fmtDateMDY(r.invoiceDate),
-      ...bucketCols.map(b => fmtMoney(r.buckets[b])),
-      { content: fmtMoney(r.rowTotal), styles: { fontStyle: 'bold' } }
+      ...bucketCols.map(b => fmtMoney(r.buckets[b], currency)),
+      { content: fmtMoney(r.rowTotal, currency), styles: { fontStyle: 'bold' } }
     ]),
     [
       { content: `Total ${soa.Customer_Name}`, styles: { fontStyle: 'bold' } },
       '',
-      ...bucketCols.map(b => ({ content: fmtMoney(totals[b]), styles: { fontStyle: 'bold' } })),
-      { content: fmtMoney(grandTotal), styles: { fontStyle: 'bold' } }
+      ...bucketCols.map(b => ({ content: fmtMoney(totals[b], currency), styles: { fontStyle: 'bold' } })),
+      { content: fmtMoney(grandTotal, currency), styles: { fontStyle: 'bold' } }
     ]
   ];
 
@@ -552,7 +565,7 @@ function buildSoaPdf(soa) {
 
 function downloadSoaPdf(soa) {
   const doc = buildSoaPdf(soa);
-  doc.save(`SOA_${soa.Customer_Name.replace(/\s+/g, '_')}_${soa.SOA_Date}.pdf`);
+  doc.save(`SOA_${soa.Customer_Name.replace(/\s+/g, '_')}_${soa.SOA_Date}_${soa.Currency || 'LKR'}.pdf`);
 }
 
 function printSoaPdf(soa) {
@@ -620,7 +633,8 @@ async function buildSoaWorkbook(soa) {
   sheet.getCell('A4').value = `As of ${soa.SOA_Date}`;
 
   // ---- Header row (5) — black fill, white bold text, thin border ----
-  const headerLabels = ['', 'Invoice Date', '1-30', '31-60', '61-90', '91-120', 'Older', 'Total (LKR)'];
+  const currency = soa.Currency || 'LKR';
+  const headerLabels = ['', 'Invoice Date', '1-30', '31-60', '61-90', '91-120', 'Older', `Total (${CURRENCY_LABELS[currency]})`];
   const headerRow = sheet.getRow(5);
   headerLabels.forEach((label, idx) => {
     const cell = headerRow.getCell(idx + 1);
@@ -645,6 +659,7 @@ async function buildSoaWorkbook(soa) {
   // ---- Invoice data rows (starting row 8) ----
   const { rows, totals, grandTotal } = calculateAgingRows(soa.invoices, soa.SOA_Date);
   const bucketKeys = ['1-30', '31-60', '61-90', '91-120', 'Older'];
+  const moneyFmt = currency === 'USD' ? '"$"#,##0.00' : '"Rs. "#,##0.00';
   let r = 8;
   rows.forEach(inv => {
     const row = sheet.getRow(r);
@@ -656,13 +671,13 @@ async function buildSoaWorkbook(soa) {
     bucketKeys.forEach((b, i) => {
       const c = row.getCell(3 + i);
       c.value = inv.buckets[b];
-      c.numFmt = '0.00';
+      c.numFmt = moneyFmt;
       c.alignment = { horizontal: 'right', vertical: 'center' };
     });
 
     const totalCell = row.getCell(8);
     totalCell.value = { formula: `SUM(C${r}:G${r})` };
-    totalCell.numFmt = '0.00';
+    totalCell.numFmt = moneyFmt;
     totalCell.font = { name: TIMES_FONT, size: 10, bold: true };
     totalCell.alignment = { horizontal: 'right', vertical: 'center' };
 
@@ -682,13 +697,13 @@ async function buildSoaWorkbook(soa) {
   bucketKeys.forEach((b, i) => {
     const c = totalRow.getCell(3 + i);
     c.value = totals[b];
-    c.numFmt = '0.00';
+    c.numFmt = moneyFmt;
     c.font = { name: TIMES_FONT, size: 10, bold: true };
     c.alignment = { horizontal: 'right', vertical: 'center' };
   });
   const grandCell = totalRow.getCell(8);
   grandCell.value = grandTotal;
-  grandCell.numFmt = '0.00';
+  grandCell.numFmt = moneyFmt;
   grandCell.font = { name: TIMES_FONT, size: 10, bold: true };
   grandCell.alignment = { horizontal: 'right', vertical: 'center' };
 
@@ -708,7 +723,7 @@ async function downloadSoaExcel(soa) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `SOA_${soa.Customer_Name.replace(/\s+/g, '_')}_${soa.SOA_Date}.xlsx`;
+  a.download = `SOA_${soa.Customer_Name.replace(/\s+/g, '_')}_${soa.SOA_Date}_${soa.Currency || 'LKR'}.xlsx`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -732,6 +747,7 @@ let currentSoa = {
   soaId: null,       // null = new/unsaved SOA
   customerName: '',
   soaDate: '',
+  currency: 'LKR',
   invoices: []        // [{ Invoice_No, Invoice_Date, Amount }]
 };
 
@@ -758,16 +774,26 @@ function wireTabs() {
   });
 }
 
+/* ============ Currency ============ */
+function updateCurrencyLabels() {
+  const currency = el('soaCurrency').value;
+  const text = currency === 'USD' ? 'Invoice Amount (USD)' : 'Invoice Amount (LKR)';
+  el('invoiceAmountLabel').textContent = text;
+  el('amountHeaderLabel').textContent = currency === 'USD' ? 'Amount (USD)' : 'Amount (LKR)';
+  renderInvoiceTable();
+}
+
 /* ============ Editor: invoice rows ============ */
 function renderInvoiceTable() {
   const tbody = el('invoiceTableBody');
+  const currency = el('soaCurrency') ? el('soaCurrency').value : 'LKR';
   tbody.innerHTML = '';
   currentSoa.invoices.forEach((inv, idx) => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${inv.Invoice_No}</td>
       <td>${inv.Invoice_Date}</td>
-      <td>${Number(inv.Amount).toFixed(2)}</td>
+      <td>${fmtMoney(inv.Amount, currency)}</td>
       <td><button class="row-remove-btn" title="Remove" data-idx="${idx}">&times;</button></td>
     `;
     tbody.appendChild(tr);
@@ -779,7 +805,7 @@ function renderInvoiceTable() {
     });
   });
   const grandTotal = currentSoa.invoices.reduce((s, inv) => s + Number(inv.Amount || 0), 0);
-  el('grandTotalCell').textContent = grandTotal.toFixed(2);
+  el('grandTotalCell').textContent = fmtMoney(grandTotal, currency);
 }
 
 function wireEditorForm() {
@@ -799,6 +825,7 @@ function wireEditorForm() {
     renderInvoiceTable();
   });
 
+  el('soaCurrency').addEventListener('change', updateCurrencyLabels);
   el('newSoaBtn').addEventListener('click', resetEditor);
   el('saveSoaBtn').addEventListener('click', saveOrUpdateSoa);
   el('deleteSoaBtn').addEventListener('click', deleteCurrentSoa);
@@ -812,18 +839,21 @@ function currentSoaForExport() {
     SOA_ID: currentSoa.soaId,
     Customer_Name: currentSoa.customerName,
     SOA_Date: currentSoa.soaDate,
+    Currency: currentSoa.currency,
     invoices: currentSoa.invoices.map(i => ({ Invoice_No: i.Invoice_No, Invoice_Date: i.Invoice_Date, Amount: i.Amount }))
   };
 }
 
 function resetEditor() {
-  currentSoa = { soaId: null, customerName: '', soaDate: '', invoices: [] };
+  currentSoa = { soaId: null, customerName: '', soaDate: '', currency: 'LKR', invoices: [] };
   el('editorTitle').textContent = 'New Statement of Account';
   el('customerName').value = '';
   el('soaDate').value = '';
+  el('soaCurrency').value = 'LKR';
   el('invoiceNo').value = '';
   el('invoiceDate').value = '';
   el('invoiceAmount').value = '';
+  updateCurrencyLabels();
   renderInvoiceTable();
   toggleExportButtons(false);
   el('deleteSoaBtn').disabled = true;
@@ -853,11 +883,13 @@ async function saveOrUpdateSoa() {
   }
   currentSoa.customerName = customerName;
   currentSoa.soaDate = soaDate;
+  currentSoa.currency = el('soaCurrency').value;
 
   const payload = {
     soaId: currentSoa.soaId,
     customerName,
     soaDate,
+    currency: currentSoa.currency,
     invoices: currentSoa.invoices.map(i => ({
       invoiceNo: i.Invoice_No, invoiceDate: i.Invoice_Date, amount: i.Amount
     }))
@@ -873,7 +905,7 @@ async function saveOrUpdateSoa() {
   el('editorTitle').textContent = `Editing ${currentSoa.soaId}`;
   el('deleteSoaBtn').disabled = false;
   toggleExportButtons(true);
-  showStatus(`Saved ${currentSoa.soaId}. Grand Total: ${Number(result.data.grandTotal).toFixed(2)}`, 'success');
+  showStatus(`Saved ${currentSoa.soaId}. Grand Total: ${fmtMoney(result.data.grandTotal, currentSoa.currency)}`, 'success');
 }
 
 async function deleteCurrentSoa() {
@@ -899,11 +931,14 @@ async function loadSoaIntoEditor(soaId) {
     soaId: data.SOA_ID,
     customerName: data.Customer_Name,
     soaDate: data.SOA_Date,
+    currency: data.Currency || 'LKR',
     invoices: data.invoices.map(i => ({ Invoice_No: i.Invoice_No, Invoice_Date: i.Invoice_Date, Amount: i.Amount }))
   };
   el('editorTitle').textContent = `Editing ${currentSoa.soaId}`;
   el('customerName').value = currentSoa.customerName;
   el('soaDate').value = currentSoa.soaDate;
+  el('soaCurrency').value = currentSoa.currency;
+  updateCurrencyLabels();
   renderInvoiceTable();
   toggleExportButtons(true);
   el('deleteSoaBtn').disabled = false;
@@ -939,7 +974,7 @@ function renderSoaList(list) {
       <td>${soa.SOA_ID}</td>
       <td>${soa.Customer_Name}</td>
       <td>${soa.SOA_Date}</td>
-      <td>${Number(soa.Grand_Total).toFixed(2)}</td>
+      <td>${fmtMoney(soa.Grand_Total, soa.Currency || 'LKR')}</td>
       <td>${soa.Created_Date}</td>
       <td><button class="btn btn-outline open-soa-btn" data-id="${soa.SOA_ID}">Open</button></td>
     `;
@@ -953,6 +988,7 @@ function renderSoaList(list) {
 /* ============ Print ============ */
 function printCurrentSoa() {
   const soa = currentSoaForExport();
+  const currency = soa.Currency || 'LKR';
   const { rows, totals, grandTotal } = calculateAgingRows(soa.invoices, soa.SOA_Date);
   const bucketKeys = ['1-30', '31-60', '61-90', '91-120', 'Older'];
 
@@ -960,8 +996,8 @@ function printCurrentSoa() {
     <tr>
       <td style="text-align:left">${r.invoiceNo}</td>
       <td style="text-align:center">${fmtDateMDY(r.invoiceDate)}</td>
-      ${bucketKeys.map(b => `<td style="text-align:right">${fmtMoney(r.buckets[b])}</td>`).join('')}
-      <td style="text-align:right;font-weight:bold">${fmtMoney(r.rowTotal)}</td>
+      ${bucketKeys.map(b => `<td style="text-align:right">${fmtMoney(r.buckets[b], currency)}</td>`).join('')}
+      <td style="text-align:right;font-weight:bold">${fmtMoney(r.rowTotal, currency)}</td>
     </tr>`).join('');
 
   el('printArea').innerHTML = `
@@ -976,7 +1012,7 @@ function printCurrentSoa() {
             <th style="padding:5px;border:1px solid #000;"></th>
             <th style="padding:5px;border:1px solid #000;">Invoice Date</th>
             ${bucketKeys.map(b => `<th style="padding:5px;border:1px solid #000;">${b}</th>`).join('')}
-            <th style="padding:5px;border:1px solid #000;">Total (LKR)</th>
+            <th style="padding:5px;border:1px solid #000;">Total (${CURRENCY_LABELS[currency]})</th>
           </tr>
         </thead>
         <tbody>
@@ -986,8 +1022,8 @@ function printCurrentSoa() {
           <tr style="border-top:3px double #000;border-bottom:3px double #000;font-weight:bold;">
             <td style="padding:5px;">Total ${soa.Customer_Name}</td>
             <td></td>
-            ${bucketKeys.map(b => `<td style="text-align:right;padding:5px;">${fmtMoney(totals[b])}</td>`).join('')}
-            <td style="text-align:right;padding:5px;">${fmtMoney(grandTotal)}</td>
+            ${bucketKeys.map(b => `<td style="text-align:right;padding:5px;">${fmtMoney(totals[b], currency)}</td>`).join('')}
+            <td style="text-align:right;padding:5px;">${fmtMoney(grandTotal, currency)}</td>
           </tr>
         </tbody>
       </table>
