@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Statement of Account — Bark Ornament</title>
+<style>
+:root {
+  --brand-blue: #1f497d;
+  --brand-blue-dark: #163a63;
+  --border-color: #d9dee5;
+  --bg: #f5f7fa;
+  --text-dark: #1a1a1a;
+  --green: #1e8e3e;
+  --red: #c62828;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Times New Roman', Times, serif;
+  background: var(--bg);
+  color: var(--text-dark);
+}
+
+/* ---------- Header ---------- */
+.app-header {
+  background: var(--brand-blue);
+  color: #fff;
+  padding: 16px 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-logo { height: 40px; width: 40px; object-fit: contain; }
+.brand h1 { font-size: 18px; margin: 0; }
+.brand p { font-size: 12px; margin: 2px 0 0; opacity: 0.85; }
+
+.tabs { display: flex; gap: 8px; }
+.tab-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.4);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+}
+.tab-btn.active { background: #fff; color: var(--brand-blue); font-weight: bold; }
+
+/* ---------- Layout ---------- */
+main { max-width: 1000px; margin: 24px auto; padding: 0 20px 60px; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+.card {
+  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.card h2 { margin-top: 0; font-size: 16px; color: var(--brand-blue); border-bottom: 2px solid var(--border-color); padding-bottom: 8px; }
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+.invoice-input-grid { grid-template-columns: 1.4fr 1fr 1fr auto; align-items: end; }
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 12px; font-weight: bold; color: #444; }
+.field input {
+  padding: 9px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: 14px;
+}
+.field input:focus { outline: none; border-color: var(--brand-blue); }
+.field-btn { justify-content: flex-end; flex-direction: row; gap: 8px; }
+
+/* ---------- Buttons ---------- */
+.btn {
+  padding: 9px 18px;
+  border-radius: 6px;
+  border: none;
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-primary { background: var(--brand-blue); color: #fff; }
+.btn-primary:hover { background: var(--brand-blue-dark); }
+.btn-secondary { background: #e5e9ef; color: var(--text-dark); }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-outline { background: #fff; color: var(--brand-blue); border: 1px solid var(--brand-blue); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.action-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.spacer { flex: 1; }
+
+.status-msg { font-size: 13px; min-height: 18px; }
+.status-msg.success { color: var(--green); }
+.status-msg.error { color: var(--red); }
+
+/* ---------- Tables ---------- */
+table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 14px; }
+thead th {
+  background: var(--brand-blue);
+  color: #fff;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 13px;
+}
+tbody td, tfoot td { padding: 8px 10px; border-bottom: 1px solid var(--border-color); }
+tbody tr:hover { background: #f3f6fa; }
+.total-label { text-align: right; font-weight: bold; }
+#grandTotalCell { font-weight: bold; color: var(--brand-blue); }
+.row-remove-btn { background: none; border: none; color: var(--red); cursor: pointer; font-size: 16px; }
+
+.soa-list-table td:last-child { display: flex; gap: 6px; }
+
+/* ---------- Print area (hidden until print) ---------- */
+.print-area { display: none; }
+
+@media print {
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area { display: block; position: absolute; top: 0; left: 0; width: 100%; }
+}
+
+@media (max-width: 700px) {
+  .app-header { flex-direction: column; align-items: flex-start; }
+  .invoice-input-grid { grid-template-columns: 1fr; }
+  .field-btn { justify-content: flex-start; }
+}
+
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">
+    <img src="assets/logo.png" alt="" class="brand-logo" onerror="this.style.display='none'">
+    <div>
+      <h1>Bark Ornament Private Limited</h1>
+      <p>Statement of Account Generator</p>
+    </div>
+  </div>
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="editor">New / Edit SOA</button>
+    <button class="tab-btn" data-tab="browse">Previous SOAs</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ============ EDITOR TAB ============ -->
+  <section id="editor" class="tab-panel active">
+
+    <div class="card">
+      <h2 id="editorTitle">New Statement of Account</h2>
+      <div class="form-grid">
+        <div class="field">
+          <label for="customerName">Customer Name</label>
+          <input type="text" id="customerName" placeholder="e.g. SOUTH BEACH WELIGAMA PROPERTIES (PVT) LTD">
+        </div>
+        <div class="field">
+          <label for="soaDate">SOA Date (As of)</label>
+          <input type="date" id="soaDate">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Invoices</h2>
+      <div class="form-grid invoice-input-grid">
+        <div class="field">
+          <label for="invoiceNo">Invoice Number</label>
+          <input type="text" id="invoiceNo" placeholder="e.g. 26JUN_BO_0011">
+        </div>
+        <div class="field">
+          <label for="invoiceDate">Invoice Date</label>
+          <input type="date" id="invoiceDate">
+        </div>
+        <div class="field">
+          <label for="invoiceAmount">Invoice Amount (LKR)</label>
+          <input type="number" id="invoiceAmount" step="0.01" placeholder="0.00">
+        </div>
+        <div class="field field-btn">
+          <button id="addInvoiceBtn" class="btn btn-primary">+ Add Invoice</button>
+        </div>
+      </div>
+
+      <table class="invoice-table">
+        <thead>
+          <tr>
+            <th>Invoice No</th>
+            <th>Invoice Date</th>
+            <th>Amount (LKR)</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="invoiceTableBody"></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2" class="total-label">Grand Total</td>
+            <td id="grandTotalCell">0.00</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div class="action-bar">
+      <button id="newSoaBtn" class="btn btn-secondary">New</button>
+      <button id="saveSoaBtn" class="btn btn-primary">Save</button>
+      <button id="deleteSoaBtn" class="btn btn-danger" disabled>Delete</button>
+      <span class="spacer"></span>
+      <button id="printBtn" class="btn btn-outline" disabled>Print</button>
+      <button id="pdfBtn" class="btn btn-outline" disabled>Download PDF</button>
+      <button id="excelBtn" class="btn btn-outline" disabled>Download Excel</button>
+    </div>
+
+    <p id="statusMsg" class="status-msg"></p>
+  </section>
+
+  <!-- ============ BROWSE TAB ============ -->
+  <section id="browse" class="tab-panel">
+    <div class="card">
+      <h2>Search Previous SOAs</h2>
+      <div class="form-grid">
+        <div class="field">
+          <label for="searchCustomer">Customer Name</label>
+          <input type="text" id="searchCustomer" placeholder="Search by customer...">
+        </div>
+        <div class="field">
+          <label for="searchDate">SOA Date</label>
+          <input type="date" id="searchDate">
+        </div>
+        <div class="field field-btn">
+          <button id="searchBtn" class="btn btn-primary">Search</button>
+          <button id="clearSearchBtn" class="btn btn-outline">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <table class="soa-list-table">
+        <thead>
+          <tr>
+            <th>SOA ID</th>
+            <th>Customer Name</th>
+            <th>SOA Date</th>
+            <th>Grand Total (LKR)</th>
+            <th>Created</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="soaListBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<!-- Hidden printable view — styled to mirror the Excel template exactly for browser Print -->
+<div id="printArea" class="print-area"></div>
+
+<!-- Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<!-- ============ App code (all modules inlined below, in dependency order) ============ -->
+
+<script>
+// ===================== api.js =====================
+/**
+ * api.js
+ * -------
+ * Thin wrapper around fetch() for talking to the Apps Script Web App.
+ *
+ * IMPORTANT: replace APP_SCRIPT_URL below with your own deployment's
+ * /exec URL after you deploy Code.gs (Deploy > New deployment > Web app).
+ *
+ * GET requests carry query params directly (simple CORS request, no preflight).
+ * POST requests use Content-Type: text/plain — Apps Script Web Apps don't
+ * answer CORS preflight (OPTIONS) requests, so a JSON Content-Type would
+ * make the browser block the call. Sending the JSON payload as plain text
+ * avoids the preflight entirely; Code.gs parses e.postData.contents itself.
+ */
+
+const APP_SCRIPT_URL = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec';
+
+const Api = {
+  async _get(params) {
+    const url = new URL(APP_SCRIPT_URL);
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v);
+    });
+    const res = await fetch(url.toString(), { method: 'GET' });
+    return res.json();
+  },
+
+  async _post(action, payload) {
+    const res = await fetch(APP_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action, payload })
+    });
+    return res.json();
+  },
+
+  listSoas() {
+    return this._get({ action: 'list' });
+  },
+  getSoa(soaId) {
+    return this._get({ action: 'get', soaId });
+  },
+  searchSoas(customerName, soaDate) {
+    return this._get({ action: 'search', customerName, soaDate });
+  },
+  saveSoa(payload) {
+    return this._post('saveSoa', payload);
+  },
+  updateSoa(payload) {
+    return this._post('updateSoa', payload);
+  },
+  deleteSoa(soaId) {
+    return this._post('deleteSoa', { soaId });
+  }
+};
+
+</script>
+
+<script>
+// ===================== aging.js =====================
+/**
+ * aging.js
+ * ---------
+ * Converts a flat invoice list (Invoice_No, Invoice_Date, Amount) into the
+ * "Aged Receivable" bucket layout used by the company SOA template:
+ * 1-30 | 31-60 | 61-90 | 91-120 | Older | Total (LKR)
+ *
+ * Bucketing rule (reverse-engineered from your South Beach template and
+ * verified against all 14 of its invoice rows): the company uses standard
+ * 30-day credit terms. Due Date = Invoice Date + 30 days. The bucket is
+ * based on how many days PAST DUE the invoice is as of the SOA date:
+ *   overdueDays = SOA_Date - Due_Date
+ *   overdueDays <= 30  -> "1-30"   (also covers not-yet-due invoices,
+ *                                    since overdueDays can be zero/negative)
+ *   overdueDays <= 60  -> "31-60"
+ *   overdueDays <= 90  -> "61-90"
+ *   overdueDays <= 120 -> "91-120"
+ *   otherwise           -> "Older"
+ *
+ * If your actual credit terms aren't 30 days (or vary by customer), change
+ * CREDIT_TERM_DAYS below.
+ */
+
+const CREDIT_TERM_DAYS = 30;
+
+/** Parses a yyyy-MM-dd string into a UTC Date (avoids timezone drift). */
+function parseDateOnly(str) {
+  const [y, m, d] = str.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+/** Returns the bucket key for a given age in days. */
+function bucketForAge(ageDays) {
+  if (ageDays <= 30) return '1-30';
+  if (ageDays <= 60) return '31-60';
+  if (ageDays <= 90) return '61-90';
+  if (ageDays <= 120) return '91-120';
+  return 'Older';
+}
+
+const BUCKET_ORDER = ['1-30', '31-60', '61-90', '91-120', 'Older'];
+
+/**
+ * Builds the aged rows for a SOA.
+ * @param {Array} invoices - [{ Invoice_No, Invoice_Date, Amount }]
+ * @param {string} soaDate - yyyy-MM-dd
+ * @returns {{ rows: Array, totals: Object, grandTotal: number }}
+ *   rows: [{ invoiceNo, invoiceDate, buckets: {1-30:0,...}, rowTotal }]
+ *   totals: { '1-30': sum, ..., 'Older': sum }
+ */
+function calculateAgingRows(invoices, soaDate) {
+  const soaD = parseDateOnly(soaDate);
+  const totals = { '1-30': 0, '31-60': 0, '61-90': 0, '91-120': 0, 'Older': 0 };
+
+  const rows = invoices.map(inv => {
+    const invD = parseDateOnly(inv.Invoice_Date);
+    const dueD = new Date(invD.getTime() + CREDIT_TERM_DAYS * 86400000);
+    const overdueDays = Math.floor((soaD - dueD) / 86400000); // can be negative (not yet due)
+    const bucket = bucketForAge(overdueDays);
+    const buckets = { '1-30': 0, '31-60': 0, '61-90': 0, '91-120': 0, 'Older': 0 };
+    const amount = Number(inv.Amount) || 0;
+    buckets[bucket] = amount;
+    totals[bucket] += amount;
+    return {
+      invoiceNo: inv.Invoice_No,
+      invoiceDate: inv.Invoice_Date,
+      buckets,
+      rowTotal: amount
+    };
+  });
+
+  const grandTotal = BUCKET_ORDER.reduce((s, k) => s + totals[k], 0);
+  return { rows, totals, grandTotal };
+}
+
+</script>
+
+<script>
+// ===================== pdf.js =====================
+/**
+ * pdf.js
+ * -------
+ * Builds a PDF that replicates the company's Aged Receivable SOA template:
+ *   - Times New Roman throughout
+ *   - Company name / address / "Statement of Account <customer>" / "As of <date>" banner
+ *   - Black header bar, white bold text: Invoice Date | 1-30 | 31-60 | 61-90 | 91-120 | Older | Total (LKR)
+ *   - "Aged Receivable" + customer name section labels
+ *   - One row per invoice, amount placed in its aging bucket, row total on the right
+ *   - Bold total row with a thick top/bottom rule
+ *
+ * Uses jsPDF's built-in "times" font (no external font file needed) and
+ * jspdf-autotable for the bordered table body.
+ */
+
+function fmtMoney(n) {
+  return Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtDateMDY(isoDate) {
+  if (!isoDate) return '';
+  const [y, m, d] = isoDate.split('-');
+  return `${m}-${d}-${y.slice(2)}`;
+}
+
+/**
+ * @param {Object} soa - { SOA_ID, Customer_Name, SOA_Date, invoices: [{Invoice_No, Invoice_Date, Amount}] }
+ * @returns {jsPDF} doc - not yet saved, caller decides save() vs output()
+ */
+function buildSoaPdf(soa) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 40;
+  const contentWidth = pageWidth - margin * 2;
+  let y = 36;
+
+  doc.setFont('times', 'bold');
+  doc.setFontSize(16);
+  doc.text('Bark Ornament Private Limited', pageWidth / 2, y, { align: 'center' });
+
+  y += 18;
+  doc.setFont('times', 'normal');
+  doc.setFontSize(11);
+  doc.text('No 59A, Punsarawatta, Bekkegama, Panadura.', pageWidth / 2, y, { align: 'center' });
+
+  y += 18;
+  doc.setFont('times', 'bold');
+  doc.setFontSize(13);
+  doc.text(`Statement of Account ${soa.Customer_Name}`, pageWidth / 2, y, { align: 'center' });
+
+  y += 16;
+  doc.setFontSize(11);
+  doc.text(`As of ${fmtDateMDY(soa.SOA_Date)}`, pageWidth / 2, y, { align: 'center' });
+
+  y += 14;
+
+  const { rows, totals, grandTotal } = calculateAgingRows(soa.invoices, soa.SOA_Date);
+
+  const bucketCols = ['1-30', '31-60', '61-90', '91-120', 'Older'];
+  const head = [['', 'Invoice Date', ...bucketCols, 'Total (LKR)']];
+
+  const body = [
+    [{ content: 'Aged Receivable', colSpan: 8, styles: { fontStyle: 'bold', halign: 'left' } }],
+    [{ content: soa.Customer_Name, colSpan: 8, styles: { fontStyle: 'bold', halign: 'left' } }],
+    ...rows.map(r => [
+      r.invoiceNo,
+      fmtDateMDY(r.invoiceDate),
+      ...bucketCols.map(b => fmtMoney(r.buckets[b])),
+      { content: fmtMoney(r.rowTotal), styles: { fontStyle: 'bold' } }
+    ]),
+    [
+      { content: `Total ${soa.Customer_Name}`, styles: { fontStyle: 'bold' } },
+      '',
+      ...bucketCols.map(b => ({ content: fmtMoney(totals[b]), styles: { fontStyle: 'bold' } })),
+      { content: fmtMoney(grandTotal), styles: { fontStyle: 'bold' } }
+    ]
+  ];
+
+  doc.autoTable({
+    startY: y,
+    head,
+    body,
+    theme: 'plain',
+    styles: {
+      font: 'times',
+      fontSize: 10,
+      cellPadding: 4,
+      valign: 'middle',
+      lineColor: [0, 0, 0],
+      lineWidth: 0.4
+    },
+    headStyles: {
+      fillColor: [0, 0, 0],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      halign: 'center',
+      lineWidth: 0.4
+    },
+    columnStyles: {
+      0: { cellWidth: contentWidth * 0.18, halign: 'left' },
+      1: { cellWidth: contentWidth * 0.12, halign: 'center' },
+      2: { cellWidth: contentWidth * 0.12, halign: 'right' },
+      3: { cellWidth: contentWidth * 0.12, halign: 'right' },
+      4: { cellWidth: contentWidth * 0.12, halign: 'right' },
+      5: { cellWidth: contentWidth * 0.12, halign: 'right' },
+      6: { cellWidth: contentWidth * 0.11, halign: 'right' },
+      7: { cellWidth: contentWidth * 0.11, halign: 'right' }
+    },
+    margin: { left: margin, right: margin },
+    didParseCell: function (data) {
+      // Section-label rows (row 0 and 1 of body) have no borders except bottom hairline
+      if (data.section === 'body' && (data.row.index === 0 || data.row.index === 1)) {
+        data.cell.styles.lineWidth = 0;
+      }
+      // Last body row = grand total row -> thick top/bottom rule
+      if (data.section === 'body' && data.row.index === body.length - 1) {
+        data.cell.styles.lineWidth = { top: 1.2, bottom: 1.2, left: 0.4, right: 0.4 };
+      }
+    }
+  });
+
+  return doc;
+}
+
+function downloadSoaPdf(soa) {
+  const doc = buildSoaPdf(soa);
+  doc.save(`SOA_${soa.Customer_Name.replace(/\s+/g, '_')}_${soa.SOA_Date}.pdf`);
+}
+
+function printSoaPdf(soa) {
+  const doc = buildSoaPdf(soa);
+  doc.autoPrint();
+  window.open(doc.output('bloburl'), '_blank');
+}
+
+</script>
+
+<script>
+// ===================== excel.js =====================
+/**
+ * excel.js
+ * ---------
+ * Builds an .xlsx file that replicates the company's Aged Receivable SOA
+ * template cell-for-cell: same merges, column widths, Times New Roman font,
+ * black header fill with white bold text, and a thick-ruled total row.
+ *
+ * Uses ExcelJS rather than SheetJS/xlsx: SheetJS's free build can only write
+ * values/formulas/merges, not fonts, fills or borders, so it can't reproduce
+ * this template's formatting. ExcelJS is free and supports all of it.
+ */
+
+const TIMES_FONT = 'Times New Roman';
+
+function styleTitle(cell, size, bold) {
+  cell.font = { name: TIMES_FONT, size, bold };
+  cell.alignment = { horizontal: 'center', vertical: 'middle' };
+}
+
+function thinBorderAll() {
+  return {
+    top: { style: 'thin' }, bottom: { style: 'thin' },
+    left: { style: 'thin' }, right: { style: 'thin' }
+  };
+}
+
+async function buildSoaWorkbook(soa) {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Statement of Account', {
+    pageSetup: { orientation: 'landscape', paperSize: 9 }
+  });
+
+  sheet.columns = [
+    { width: 18 }, { width: 14 }, { width: 12 }, { width: 12 },
+    { width: 12 }, { width: 12 }, { width: 12 }, { width: 14 }
+  ];
+
+  // ---- Banner rows (1-4) ----
+  sheet.mergeCells('A1:H1');
+  styleTitle(sheet.getCell('A1'), 14, true);
+  sheet.getCell('A1').value = 'Bark Ornament Private Limited';
+
+  sheet.mergeCells('A2:H2');
+  styleTitle(sheet.getCell('A2'), 10, false);
+  sheet.getCell('A2').value = 'No 59A, Punsarawatta, Bekkegama, Panadura.';
+
+  sheet.mergeCells('A3:H3');
+  styleTitle(sheet.getCell('A3'), 11, true);
+  sheet.getCell('A3').value = `Statement of Account ${soa.Customer_Name}`;
+
+  sheet.mergeCells('A4:H4');
+  styleTitle(sheet.getCell('A4'), 10, true);
+  sheet.getCell('A4').value = `As of ${soa.SOA_Date}`;
+
+  // ---- Header row (5) — black fill, white bold text, thin border ----
+  const headerLabels = ['', 'Invoice Date', '1-30', '31-60', '61-90', '91-120', 'Older', 'Total (LKR)'];
+  const headerRow = sheet.getRow(5);
+  headerLabels.forEach((label, idx) => {
+    const cell = headerRow.getCell(idx + 1);
+    cell.value = label;
+    cell.font = { name: TIMES_FONT, size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } };
+    cell.border = thinBorderAll();
+  });
+
+  // ---- Section labels (6, 7) ----
+  sheet.mergeCells('A6:H6');
+  sheet.getCell('A6').value = 'Aged Receivable';
+  sheet.getCell('A6').font = { name: TIMES_FONT, size: 10, bold: true };
+  sheet.getCell('A6').alignment = { horizontal: 'left', vertical: 'center' };
+
+  sheet.mergeCells('A7:H7');
+  sheet.getCell('A7').value = soa.Customer_Name;
+  sheet.getCell('A7').font = { name: TIMES_FONT, size: 10, bold: true };
+  sheet.getCell('A7').alignment = { horizontal: 'left', vertical: 'center' };
+
+  // ---- Invoice data rows (starting row 8) ----
+  const { rows, totals, grandTotal } = calculateAgingRows(soa.invoices, soa.SOA_Date);
+  const bucketKeys = ['1-30', '31-60', '61-90', '91-120', 'Older'];
+  let r = 8;
+  rows.forEach(inv => {
+    const row = sheet.getRow(r);
+    row.getCell(1).value = inv.invoiceNo;
+    row.getCell(2).value = new Date(inv.invoiceDate);
+    row.getCell(2).numFmt = 'mm-dd-yy';
+    row.getCell(2).alignment = { horizontal: 'center', vertical: 'center' };
+
+    bucketKeys.forEach((b, i) => {
+      const c = row.getCell(3 + i);
+      c.value = inv.buckets[b];
+      c.numFmt = '0.00';
+      c.alignment = { horizontal: 'right', vertical: 'center' };
+    });
+
+    const totalCell = row.getCell(8);
+    totalCell.value = { formula: `SUM(C${r}:G${r})` };
+    totalCell.numFmt = '0.00';
+    totalCell.font = { name: TIMES_FONT, size: 10, bold: true };
+    totalCell.alignment = { horizontal: 'right', vertical: 'center' };
+
+    [1, 2, 3, 4, 5, 6, 7].forEach(col => {
+      row.getCell(col).font = row.getCell(col).font || { name: TIMES_FONT, size: 10 };
+      if (!row.getCell(col).font.name) row.getCell(col).font = { name: TIMES_FONT, size: 10 };
+    });
+    row.eachCell(cell => { if (!cell.font || !cell.font.name) cell.font = { name: TIMES_FONT, size: 10 }; });
+    r++;
+  });
+
+  // ---- Total row ----
+  const totalRow = sheet.getRow(r);
+  totalRow.getCell(1).value = `Total ${soa.Customer_Name}`;
+  totalRow.getCell(1).font = { name: TIMES_FONT, size: 10, bold: true };
+
+  bucketKeys.forEach((b, i) => {
+    const c = totalRow.getCell(3 + i);
+    c.value = totals[b];
+    c.numFmt = '0.00';
+    c.font = { name: TIMES_FONT, size: 10, bold: true };
+    c.alignment = { horizontal: 'right', vertical: 'center' };
+  });
+  const grandCell = totalRow.getCell(8);
+  grandCell.value = grandTotal;
+  grandCell.numFmt = '0.00';
+  grandCell.font = { name: TIMES_FONT, size: 10, bold: true };
+  grandCell.alignment = { horizontal: 'right', vertical: 'center' };
+
+  // Thick top/bottom rule across the whole total row
+  for (let c = 1; c <= 8; c++) {
+    const cell = totalRow.getCell(c);
+    cell.border = { top: { style: 'thick' }, bottom: { style: 'thick' } };
+  }
+
+  return workbook;
+}
+
+async function downloadSoaExcel(soa) {
+  const workbook = await buildSoaWorkbook(soa);
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `SOA_${soa.Customer_Name.replace(/\s+/g, '_')}_${soa.SOA_Date}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+</script>
+
+<script>
+// ===================== script.js =====================
+/**
+ * script.js
+ * ----------
+ * Ties the UI together: manages the in-progress SOA being edited, the
+ * invoice line-item table, saving/loading via api.js, and hands off to
+ * pdf.js / excel.js for exports and to the print view.
+ */
+
+// ---- App state ----
+let currentSoa = {
+  soaId: null,       // null = new/unsaved SOA
+  customerName: '',
+  soaDate: '',
+  invoices: []        // [{ Invoice_No, Invoice_Date, Amount }]
+};
+
+// ---- DOM refs ----
+const el = id => document.getElementById(id);
+
+document.addEventListener('DOMContentLoaded', () => {
+  wireTabs();
+  wireEditorForm();
+  wireBrowseTab();
+  resetEditor();
+});
+
+/* ============ Tabs ============ */
+function wireTabs() {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      el(btn.dataset.tab).classList.add('active');
+      if (btn.dataset.tab === 'browse') loadSoaList();
+    });
+  });
+}
+
+/* ============ Editor: invoice rows ============ */
+function renderInvoiceTable() {
+  const tbody = el('invoiceTableBody');
+  tbody.innerHTML = '';
+  currentSoa.invoices.forEach((inv, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${inv.Invoice_No}</td>
+      <td>${inv.Invoice_Date}</td>
+      <td>${Number(inv.Amount).toFixed(2)}</td>
+      <td><button class="row-remove-btn" title="Remove" data-idx="${idx}">&times;</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('.row-remove-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentSoa.invoices.splice(Number(btn.dataset.idx), 1);
+      renderInvoiceTable();
+    });
+  });
+  const grandTotal = currentSoa.invoices.reduce((s, inv) => s + Number(inv.Amount || 0), 0);
+  el('grandTotalCell').textContent = grandTotal.toFixed(2);
+}
+
+function wireEditorForm() {
+  el('addInvoiceBtn').addEventListener('click', () => {
+    const no = el('invoiceNo').value.trim();
+    const date = el('invoiceDate').value;
+    const amount = parseFloat(el('invoiceAmount').value);
+    if (!no || !date || isNaN(amount)) {
+      showStatus('Please fill in invoice number, date, and amount.', 'error');
+      return;
+    }
+    currentSoa.invoices.push({ Invoice_No: no, Invoice_Date: date, Amount: amount });
+    el('invoiceNo').value = '';
+    el('invoiceDate').value = '';
+    el('invoiceAmount').value = '';
+    el('invoiceNo').focus();
+    renderInvoiceTable();
+  });
+
+  el('newSoaBtn').addEventListener('click', resetEditor);
+  el('saveSoaBtn').addEventListener('click', saveOrUpdateSoa);
+  el('deleteSoaBtn').addEventListener('click', deleteCurrentSoa);
+  el('printBtn').addEventListener('click', () => printCurrentSoa());
+  el('pdfBtn').addEventListener('click', () => downloadSoaPdf(currentSoaForExport()));
+  el('excelBtn').addEventListener('click', () => downloadSoaExcel(currentSoaForExport()));
+}
+
+function currentSoaForExport() {
+  return {
+    SOA_ID: currentSoa.soaId,
+    Customer_Name: currentSoa.customerName,
+    SOA_Date: currentSoa.soaDate,
+    invoices: currentSoa.invoices.map(i => ({ Invoice_No: i.Invoice_No, Invoice_Date: i.Invoice_Date, Amount: i.Amount }))
+  };
+}
+
+function resetEditor() {
+  currentSoa = { soaId: null, customerName: '', soaDate: '', invoices: [] };
+  el('editorTitle').textContent = 'New Statement of Account';
+  el('customerName').value = '';
+  el('soaDate').value = '';
+  el('invoiceNo').value = '';
+  el('invoiceDate').value = '';
+  el('invoiceAmount').value = '';
+  renderInvoiceTable();
+  toggleExportButtons(false);
+  el('deleteSoaBtn').disabled = true;
+  showStatus('');
+}
+
+function toggleExportButtons(enabled) {
+  ['printBtn', 'pdfBtn', 'excelBtn'].forEach(id => el(id).disabled = !enabled);
+}
+
+function showStatus(msg, type) {
+  const box = el('statusMsg');
+  box.textContent = msg;
+  box.className = 'status-msg' + (type ? ' ' + type : '');
+}
+
+async function saveOrUpdateSoa() {
+  const customerName = el('customerName').value.trim();
+  const soaDate = el('soaDate').value;
+  if (!customerName || !soaDate) {
+    showStatus('Please enter Customer Name and SOA Date.', 'error');
+    return;
+  }
+  if (currentSoa.invoices.length === 0) {
+    showStatus('Add at least one invoice before saving.', 'error');
+    return;
+  }
+  currentSoa.customerName = customerName;
+  currentSoa.soaDate = soaDate;
+
+  const payload = {
+    soaId: currentSoa.soaId,
+    customerName,
+    soaDate,
+    invoices: currentSoa.invoices.map(i => ({
+      invoiceNo: i.Invoice_No, invoiceDate: i.Invoice_Date, amount: i.Amount
+    }))
+  };
+
+  showStatus('Saving...', '');
+  const result = currentSoa.soaId ? await Api.updateSoa(payload) : await Api.saveSoa(payload);
+  if (!result.success) {
+    showStatus('Error: ' + result.error, 'error');
+    return;
+  }
+  currentSoa.soaId = result.data.soaId;
+  el('editorTitle').textContent = `Editing ${currentSoa.soaId}`;
+  el('deleteSoaBtn').disabled = false;
+  toggleExportButtons(true);
+  showStatus(`Saved ${currentSoa.soaId}. Grand Total: ${Number(result.data.grandTotal).toFixed(2)}`, 'success');
+}
+
+async function deleteCurrentSoa() {
+  if (!currentSoa.soaId) return;
+  if (!confirm(`Delete ${currentSoa.soaId}? This cannot be undone.`)) return;
+  const result = await Api.deleteSoa(currentSoa.soaId);
+  if (!result.success) {
+    showStatus('Error: ' + result.error, 'error');
+    return;
+  }
+  showStatus(`Deleted ${currentSoa.soaId}.`, 'success');
+  resetEditor();
+}
+
+async function loadSoaIntoEditor(soaId) {
+  const result = await Api.getSoa(soaId);
+  if (!result.success) {
+    showStatus('Error: ' + result.error, 'error');
+    return;
+  }
+  const data = result.data;
+  currentSoa = {
+    soaId: data.SOA_ID,
+    customerName: data.Customer_Name,
+    soaDate: data.SOA_Date,
+    invoices: data.invoices.map(i => ({ Invoice_No: i.Invoice_No, Invoice_Date: i.Invoice_Date, Amount: i.Amount }))
+  };
+  el('editorTitle').textContent = `Editing ${currentSoa.soaId}`;
+  el('customerName').value = currentSoa.customerName;
+  el('soaDate').value = currentSoa.soaDate;
+  renderInvoiceTable();
+  toggleExportButtons(true);
+  el('deleteSoaBtn').disabled = false;
+  document.querySelector('.tab-btn[data-tab="editor"]').click();
+}
+
+/* ============ Browse / Search tab ============ */
+function wireBrowseTab() {
+  el('searchBtn').addEventListener('click', async () => {
+    const name = el('searchCustomer').value.trim();
+    const date = el('searchDate').value;
+    const result = await Api.searchSoas(name, date);
+    renderSoaList(result.success ? result.data : []);
+  });
+  el('clearSearchBtn').addEventListener('click', () => {
+    el('searchCustomer').value = '';
+    el('searchDate').value = '';
+    loadSoaList();
+  });
+}
+
+async function loadSoaList() {
+  const result = await Api.listSoas();
+  renderSoaList(result.success ? result.data : []);
+}
+
+function renderSoaList(list) {
+  const tbody = el('soaListBody');
+  tbody.innerHTML = '';
+  list.forEach(soa => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${soa.SOA_ID}</td>
+      <td>${soa.Customer_Name}</td>
+      <td>${soa.SOA_Date}</td>
+      <td>${Number(soa.Grand_Total).toFixed(2)}</td>
+      <td>${soa.Created_Date}</td>
+      <td><button class="btn btn-outline open-soa-btn" data-id="${soa.SOA_ID}">Open</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('.open-soa-btn').forEach(btn => {
+    btn.addEventListener('click', () => loadSoaIntoEditor(btn.dataset.id));
+  });
+}
+
+/* ============ Print ============ */
+function printCurrentSoa() {
+  const soa = currentSoaForExport();
+  const { rows, totals, grandTotal } = calculateAgingRows(soa.invoices, soa.SOA_Date);
+  const bucketKeys = ['1-30', '31-60', '61-90', '91-120', 'Older'];
+
+  const rowsHtml = rows.map(r => `
+    <tr>
+      <td style="text-align:left">${r.invoiceNo}</td>
+      <td style="text-align:center">${fmtDateMDY(r.invoiceDate)}</td>
+      ${bucketKeys.map(b => `<td style="text-align:right">${fmtMoney(r.buckets[b])}</td>`).join('')}
+      <td style="text-align:right;font-weight:bold">${fmtMoney(r.rowTotal)}</td>
+    </tr>`).join('');
+
+  el('printArea').innerHTML = `
+    <div style="font-family:'Times New Roman',serif;padding:20px;">
+      <h2 style="text-align:center;margin:2px 0;">Bark Ornament Private Limited</h2>
+      <p style="text-align:center;margin:2px 0;font-size:12px;">No 59A, Punsarawatta, Bekkegama, Panadura.</p>
+      <h3 style="text-align:center;margin:10px 0 2px;">Statement of Account ${soa.Customer_Name}</h3>
+      <p style="text-align:center;margin:2px 0;font-weight:bold;">As of ${fmtDateMDY(soa.SOA_Date)}</p>
+      <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:12px;">
+        <thead>
+          <tr style="background:#000;color:#fff;">
+            <th style="padding:5px;border:1px solid #000;"></th>
+            <th style="padding:5px;border:1px solid #000;">Invoice Date</th>
+            ${bucketKeys.map(b => `<th style="padding:5px;border:1px solid #000;">${b}</th>`).join('')}
+            <th style="padding:5px;border:1px solid #000;">Total (LKR)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="8" style="font-weight:bold;padding:4px;">Aged Receivable</td></tr>
+          <tr><td colspan="8" style="font-weight:bold;padding:4px;">${soa.Customer_Name}</td></tr>
+          ${rowsHtml}
+          <tr style="border-top:3px double #000;border-bottom:3px double #000;font-weight:bold;">
+            <td style="padding:5px;">Total ${soa.Customer_Name}</td>
+            <td></td>
+            ${bucketKeys.map(b => `<td style="text-align:right;padding:5px;">${fmtMoney(totals[b])}</td>`).join('')}
+            <td style="text-align:right;padding:5px;">${fmtMoney(grandTotal)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`;
+
+  window.print();
+}
+
+</script>
+
+</body>
+</html>
