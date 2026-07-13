@@ -459,7 +459,7 @@ function fmtMoney(n, currency) {
 function fmtDateMDY(isoDate) {
   if (!isoDate) return '';
   const [y, m, d] = isoDate.split('-');
-  return `${m}-${d}-${y.slice(2)}`;
+  return `${m}/${d}/${y}`;
 }
 
 /**
@@ -510,8 +510,7 @@ function buildSoaPdf(soa) {
       { content: fmtMoney(r.rowTotal, currency), styles: { fontStyle: 'bold' } }
     ]),
     [
-      { content: `Total ${soa.Customer_Name}`, styles: { fontStyle: 'bold' } },
-      '',
+      { content: `Total ${soa.Customer_Name}`, colSpan: 2, styles: { fontStyle: 'bold' } },
       ...bucketCols.map(b => ({ content: fmtMoney(totals[b], currency), styles: { fontStyle: 'bold' } })),
       { content: fmtMoney(grandTotal, currency), styles: { fontStyle: 'bold' } }
     ]
@@ -1020,8 +1019,7 @@ function printCurrentSoa() {
           <tr><td colspan="8" style="font-weight:bold;padding:4px;">${soa.Customer_Name}</td></tr>
           ${rowsHtml}
           <tr style="border-top:3px double #000;border-bottom:3px double #000;font-weight:bold;">
-            <td style="padding:5px;">Total ${soa.Customer_Name}</td>
-            <td></td>
+            <td colspan="2" style="padding:5px;">Total ${soa.Customer_Name}</td>
             ${bucketKeys.map(b => `<td style="text-align:right;padding:5px;">${fmtMoney(totals[b], currency)}</td>`).join('')}
             <td style="text-align:right;padding:5px;">${fmtMoney(grandTotal, currency)}</td>
           </tr>
