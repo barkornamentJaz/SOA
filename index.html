@@ -558,6 +558,10 @@ function buildSoaPdf(soa) {
       if (data.section === 'body' && data.row.index === body.length - 1) {
         data.cell.styles.lineWidth = { top: 1.2, bottom: 1.2, left: 0.4, right: 0.4 };
       }
+      // Center the "-" placeholder for zero amounts instead of right-aligning it
+      if ((data.section === 'body') && data.cell.raw && String(data.cell.raw.content ?? data.cell.raw).trim() === '-') {
+        data.cell.styles.halign = 'center';
+      }
     }
   });
 
@@ -987,6 +991,10 @@ function renderSoaList(list) {
 }
 
 /* ============ Print ============ */
+function moneyAlign(val) {
+  return val.trim() === '-' ? 'center' : 'right';
+}
+
 function printCurrentSoa() {
   const soa = currentSoaForExport();
   const currency = soa.Currency || 'LKR';
@@ -997,8 +1005,8 @@ function printCurrentSoa() {
     <tr>
       <td style="text-align:left">${r.invoiceNo}</td>
       <td style="text-align:center">${fmtDateMDY(r.invoiceDate)}</td>
-      ${bucketKeys.map(b => `<td style="text-align:right">${fmtMoney(r.buckets[b], currency)}</td>`).join('')}
-      <td style="text-align:right;font-weight:bold">${fmtMoney(r.rowTotal, currency)}</td>
+      ${bucketKeys.map(b => { const v = fmtMoney(r.buckets[b], currency); return `<td style="text-align:${moneyAlign(v)}">${v}</td>`; }).join('')}
+      <td style="text-align:${moneyAlign(fmtMoney(r.rowTotal, currency))};font-weight:bold">${fmtMoney(r.rowTotal, currency)}</td>
     </tr>`).join('');
 
   el('printArea').innerHTML = `
@@ -1022,8 +1030,8 @@ function printCurrentSoa() {
           ${rowsHtml}
           <tr style="border-top:3px double #000;border-bottom:3px double #000;font-weight:bold;">
             <td colspan="2" style="padding:5px;">Total ${soa.Customer_Name}</td>
-            ${bucketKeys.map(b => `<td style="text-align:right;padding:5px;">${fmtMoney(totals[b], currency)}</td>`).join('')}
-            <td style="text-align:right;padding:5px;">${fmtMoney(grandTotal, currency)}</td>
+            ${bucketKeys.map(b => { const v = fmtMoney(totals[b], currency); return `<td style="text-align:${moneyAlign(v)};padding:5px;">${v}</td>`; }).join('')}
+            <td style="text-align:${moneyAlign(fmtMoney(grandTotal, currency))};padding:5px;">${fmtMoney(grandTotal, currency)}</td>
           </tr>
         </tbody>
       </table>
