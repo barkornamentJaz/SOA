@@ -451,9 +451,11 @@ const CURRENCY_SYMBOLS = { LKR: 'Rs. ', USD: '$' };
 const CURRENCY_LABELS = { LKR: 'LKR', USD: 'USD' };
 
 function fmtMoney(n, currency) {
-  const num = Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  if (!currency) return num;
-  return (CURRENCY_SYMBOLS[currency] || '') + num;
+  const num = Number(n || 0);
+  if (num === 0) return '-';
+  const formatted = num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (!currency) return formatted;
+  return (CURRENCY_SYMBOLS[currency] || '') + formatted;
 }
 
 function fmtDateMDY(isoDate) {
