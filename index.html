@@ -365,8 +365,8 @@ const Api = {
  * 30-day credit terms. Due Date = Invoice Date + 30 days. The bucket is
  * based on how many days PAST DUE the invoice is as of the SOA date:
  *   overdueDays = SOA_Date - Due_Date
- *   overdueDays <= 30  -> "1-30"   (also covers not-yet-due invoices,
- *                                    since overdueDays can be zero/negative)
+ *   overdueDays <= 0   -> "At Date" (not yet due)
+ *   overdueDays <= 30  -> "1-30"
  *   overdueDays <= 60  -> "31-60"
  *   overdueDays <= 90  -> "61-90"
  *   overdueDays <= 120 -> "91-120"
@@ -386,6 +386,7 @@ function parseDateOnly(str) {
 
 /** Returns the bucket key for a given age in days. */
 function bucketForAge(ageDays) {
+  if (ageDays <= 0) return 'At Date';
   if (ageDays <= 30) return '1-30';
   if (ageDays <= 60) return '31-60';
   if (ageDays <= 90) return '61-90';
@@ -393,7 +394,7 @@ function bucketForAge(ageDays) {
   return 'Older';
 }
 
-const BUCKET_ORDER = ['1-30', '31-60', '61-90', '91-120', 'Older'];
+const BUCKET_ORDER = ['At Date', '1-30', '31-60', '61-90', '91-120', 'Older'];
 
 /**
  * Builds the aged rows for a SOA.
@@ -405,14 +406,14 @@ const BUCKET_ORDER = ['1-30', '31-60', '61-90', '91-120', 'Older'];
  */
 function calculateAgingRows(invoices, soaDate) {
   const soaD = parseDateOnly(soaDate);
-  const totals = { '1-30': 0, '31-60': 0, '61-90': 0, '91-120': 0, 'Older': 0 };
+  const totals = { 'At Date': 0, '1-30': 0, '31-60': 0, '61-90': 0, '91-120': 0, 'Older': 0 };
 
   const rows = invoices.map(inv => {
     const invD = parseDateOnly(inv.Invoice_Date);
     const dueD = new Date(invD.getTime() + CREDIT_TERM_DAYS * 86400000);
     const overdueDays = Math.floor((soaD - dueD) / 86400000); // can be negative (not yet due)
     const bucket = bucketForAge(overdueDays);
-    const buckets = { '1-30': 0, '31-60': 0, '61-90': 0, '91-120': 0, 'Older': 0 };
+    const buckets = { 'At Date': 0, '1-30': 0, '31-60': 0, '61-90': 0, '91-120': 0, 'Older': 0 };
     const amount = Number(inv.Amount) || 0;
     buckets[bucket] = amount;
     totals[bucket] += amount;
@@ -499,12 +500,12 @@ function buildSoaPdf(soa) {
   const { rows, totals, grandTotal } = calculateAgingRows(soa.invoices, soa.SOA_Date);
   const currency = soa.Currency || 'LKR';
 
-  const bucketCols = ['1-30', '31-60', '61-90', '91-120', 'Older'];
+  const bucketCols = ['At Date', '1-30', '31-60', '61-90', '91-120', 'Older'];
   const head = [['', 'Invoice Date', ...bucketCols, `Total (${CURRENCY_LABELS[currency]})`]];
 
   const body = [
-    [{ content: 'Aged Receivable', colSpan: 8, styles: { fontStyle: 'bold', halign: 'left' } }],
-    [{ content: soa.Customer_Name, colSpan: 8, styles: { fontStyle: 'bold', halign: 'left' } }],
+    [{ content: 'Aged Receivable', colSpan: 9, styles: { fontStyle: 'bold', halign: 'left' } }],
+    [{ content: soa.Customer_Name, colSpan: 9, styles: { fontStyle: 'bold', halign: 'left' } }],
     ...rows.map(r => [
       r.invoiceNo,
       fmtDateMDY(r.invoiceDate),
@@ -539,14 +540,15 @@ function buildSoaPdf(soa) {
       lineWidth: 0.4
     },
     columnStyles: {
-      0: { cellWidth: contentWidth * 0.18, halign: 'left' },
-      1: { cellWidth: contentWidth * 0.12, halign: 'center' },
-      2: { cellWidth: contentWidth * 0.12, halign: 'right' },
-      3: { cellWidth: contentWidth * 0.12, halign: 'right' },
-      4: { cellWidth: contentWidth * 0.12, halign: 'right' },
-      5: { cellWidth: contentWidth * 0.12, halign: 'right' },
-      6: { cellWidth: contentWidth * 0.11, halign: 'right' },
-      7: { cellWidth: contentWidth * 0.11, halign: 'right' }
+      0: { cellWidth: contentWidth * 0.16, halign: 'left' },
+      1: { cellWidth: contentWidth * 0.11, halign: 'center' },
+      2: { cellWidth: contentWidth * 0.10, halign: 'right' },
+      3: { cellWidth: contentWidth * 0.10, halign: 'right' },
+      4: { cellWidth: contentWidth * 0.10, halign: 'right' },
+      5: { cellWidth: contentWidth * 0.10, halign: 'right' },
+      6: { cellWidth: contentWidth * 0.10, halign: 'right' },
+      7: { cellWidth: contentWidth * 0.10, halign: 'right' },
+      8: { cellWidth: contentWidth * 0.13, halign: 'right' }
     },
     margin: { left: margin, right: margin },
     didParseCell: function (data) {
@@ -617,29 +619,29 @@ async function buildSoaWorkbook(soa) {
 
   sheet.columns = [
     { width: 18 }, { width: 14 }, { width: 12 }, { width: 12 },
-    { width: 12 }, { width: 12 }, { width: 12 }, { width: 14 }
+    { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 14 }
   ];
 
   // ---- Banner rows (1-4) ----
-  sheet.mergeCells('A1:H1');
+  sheet.mergeCells('A1:I1');
   styleTitle(sheet.getCell('A1'), 14, true);
   sheet.getCell('A1').value = 'Bark Ornament Private Limited';
 
-  sheet.mergeCells('A2:H2');
+  sheet.mergeCells('A2:I2');
   styleTitle(sheet.getCell('A2'), 10, false);
   sheet.getCell('A2').value = 'No 59A, Punsarawatta, Bekkegama, Panadura.';
 
-  sheet.mergeCells('A3:H3');
+  sheet.mergeCells('A3:I3');
   styleTitle(sheet.getCell('A3'), 11, true);
   sheet.getCell('A3').value = `Statement of Account ${soa.Customer_Name}`;
 
-  sheet.mergeCells('A4:H4');
+  sheet.mergeCells('A4:I4');
   styleTitle(sheet.getCell('A4'), 10, true);
   sheet.getCell('A4').value = `As of ${soa.SOA_Date}`;
 
   // ---- Header row (5) — black fill, white bold text, thin border ----
   const currency = soa.Currency || 'LKR';
-  const headerLabels = ['', 'Invoice Date', '1-30', '31-60', '61-90', '91-120', 'Older', `Total (${CURRENCY_LABELS[currency]})`];
+  const headerLabels = ['', 'Invoice Date', 'At Date', '1-30', '31-60', '61-90', '91-120', 'Older', `Total (${CURRENCY_LABELS[currency]})`];
   const headerRow = sheet.getRow(5);
   headerLabels.forEach((label, idx) => {
     const cell = headerRow.getCell(idx + 1);
@@ -651,19 +653,19 @@ async function buildSoaWorkbook(soa) {
   });
 
   // ---- Section labels (6, 7) ----
-  sheet.mergeCells('A6:H6');
+  sheet.mergeCells('A6:I6');
   sheet.getCell('A6').value = 'Aged Receivable';
   sheet.getCell('A6').font = { name: TIMES_FONT, size: 10, bold: true };
   sheet.getCell('A6').alignment = { horizontal: 'left', vertical: 'center' };
 
-  sheet.mergeCells('A7:H7');
+  sheet.mergeCells('A7:I7');
   sheet.getCell('A7').value = soa.Customer_Name;
   sheet.getCell('A7').font = { name: TIMES_FONT, size: 10, bold: true };
   sheet.getCell('A7').alignment = { horizontal: 'left', vertical: 'center' };
 
   // ---- Invoice data rows (starting row 8) ----
   const { rows, totals, grandTotal } = calculateAgingRows(soa.invoices, soa.SOA_Date);
-  const bucketKeys = ['1-30', '31-60', '61-90', '91-120', 'Older'];
+  const bucketKeys = ['At Date', '1-30', '31-60', '61-90', '91-120', 'Older'];
   const moneyFmt = currency === 'USD' ? '"$"#,##0.00' : '"Rs. "#,##0.00';
   let r = 8;
   rows.forEach(inv => {
@@ -680,13 +682,13 @@ async function buildSoaWorkbook(soa) {
       c.alignment = { horizontal: 'right', vertical: 'center' };
     });
 
-    const totalCell = row.getCell(8);
-    totalCell.value = { formula: `SUM(C${r}:G${r})` };
+    const totalCell = row.getCell(9);
+    totalCell.value = { formula: `SUM(C${r}:H${r})` };
     totalCell.numFmt = moneyFmt;
     totalCell.font = { name: TIMES_FONT, size: 10, bold: true };
     totalCell.alignment = { horizontal: 'right', vertical: 'center' };
 
-    [1, 2, 3, 4, 5, 6, 7].forEach(col => {
+    [1, 2, 3, 4, 5, 6, 7, 8].forEach(col => {
       row.getCell(col).font = row.getCell(col).font || { name: TIMES_FONT, size: 10 };
       if (!row.getCell(col).font.name) row.getCell(col).font = { name: TIMES_FONT, size: 10 };
     });
@@ -706,14 +708,14 @@ async function buildSoaWorkbook(soa) {
     c.font = { name: TIMES_FONT, size: 10, bold: true };
     c.alignment = { horizontal: 'right', vertical: 'center' };
   });
-  const grandCell = totalRow.getCell(8);
+  const grandCell = totalRow.getCell(9);
   grandCell.value = grandTotal;
   grandCell.numFmt = moneyFmt;
   grandCell.font = { name: TIMES_FONT, size: 10, bold: true };
   grandCell.alignment = { horizontal: 'right', vertical: 'center' };
 
   // Thick top/bottom rule across the whole total row
-  for (let c = 1; c <= 8; c++) {
+  for (let c = 1; c <= 9; c++) {
     const cell = totalRow.getCell(c);
     cell.border = { top: { style: 'thick' }, bottom: { style: 'thick' } };
   }
@@ -999,7 +1001,7 @@ function printCurrentSoa() {
   const soa = currentSoaForExport();
   const currency = soa.Currency || 'LKR';
   const { rows, totals, grandTotal } = calculateAgingRows(soa.invoices, soa.SOA_Date);
-  const bucketKeys = ['1-30', '31-60', '61-90', '91-120', 'Older'];
+  const bucketKeys = ['At Date', '1-30', '31-60', '61-90', '91-120', 'Older'];
 
   const rowsHtml = rows.map(r => `
     <tr>
@@ -1025,8 +1027,8 @@ function printCurrentSoa() {
           </tr>
         </thead>
         <tbody>
-          <tr><td colspan="8" style="font-weight:bold;padding:4px;">Aged Receivable</td></tr>
-          <tr><td colspan="8" style="font-weight:bold;padding:4px;">${soa.Customer_Name}</td></tr>
+          <tr><td colspan="9" style="font-weight:bold;padding:4px;">Aged Receivable</td></tr>
+          <tr><td colspan="9" style="font-weight:bold;padding:4px;">${soa.Customer_Name}</td></tr>
           ${rowsHtml}
           <tr style="border-top:3px double #000;border-bottom:3px double #000;font-weight:bold;">
             <td colspan="2" style="padding:5px;">Total ${soa.Customer_Name}</td>
